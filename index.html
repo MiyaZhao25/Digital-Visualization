@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>UK Employment Distribution(divide by indrustries)</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+    
+<!--Load the chart libraries. Dimple is built on D3, and you need to also add D3-->
+<script charset="utf-8" src="https://d3js.org/d3.v4.min.js"></script>
+<script charset="utf-8" src="https://cdnjs.cloudflare.com/ajax/libs/dimple/2.3.0/dimple.latest.min.js"></script>
+
+    
+<style>
+	body { margin: 0; padding: 0; }
+    
+    h2, h3, p { margin: 10px; }
+    
+    h2 { font-size: 18px; }
+    
+    h3 { font-size: 16px; }
+    
+    p { font-size: 14px; }
+	
+    #map { position: absolute;
+    top: 0; bottom: 0; width: 100%; }
+    
+    #features { top: 0; height: 555px;
+    margin-top: 20px; width: 280px; 
+    opacity: 0.7; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);}
+    
+    #trytofly { bottom: 28px; height: 85px; left: 10px;
+    margin-top: 20px; width: 300px; 
+    opacity: 0.7; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); }
+    
+    #chartContainer { bottom: 115px; width: 300px; left: 10px; 
+    margin-top: 20px;  opacity: 0.7; height: 280px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);}
+    
+    .map-overlay { position: absolute; bottom: 0; right: 0; 
+    background: #fff; margin-right: 20px; font-family: Arial, sans-serif;
+    overflow: auto; border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1); z-index: 0} //设置图层叠加形式
+    
+    .map-overlay .map-overlay-inner {
+    background-color: #fff;
+    box-shadow:0 1px 2px rgba(0, 0, 0, 0.20);
+    border-radius: 3px;
+    padding: 10px;
+    margin-bottom: 10px;
+    }
+
+    .map-overlay table {
+    border: none;
+    width: 100%;
+    }
+    
+    
+</style>
+</head>
+
+<body>
+<div id="map"></div>
+<div class='map-overlay' id='features'>
+    <h2>Employment distribution in major cities in the UK (2022)</h2>
+    <div id='pd'><p>Count</p></div>
+    <table><tr><td>
+    <input type="radio" name="layers" id="layer0" value="1" checked><label>Agriculture, forestry, fishing  <br></label>
+    <input type="radio" name="layers" id="layer1" value="2"><label>Mining, quarrying, utilities  <br></label>
+    <input type="radio" name="layers" id="layer2" value="3"><label>Manufacturing  <br></label>
+    <input type="radio" name="layers" id="layer3" value="4"><label>Construction  <br></label>
+    <input type="radio" name="layers" id="layer4" value="5"><label>Motor trades  <br></label>
+    <input type="radio" name="layers" id="layer5" value="6"><label>Wholesale  <br></label>
+    <input type="radio" name="layers" id="layer6" value="7"><label>Retail  <br></label>
+    <input type="radio" name="layers" id="layer7" value="8"><label>Transport and storage  <br></label>
+    <input type="radio" name="layers" id="layer8" value="9"><label>Accommodation, food services  <br></label>
+    <input type="radio" name="layers" id="layer9" value="10"><label>Information, communication  <br></label>
+    <input type="radio" name="layers" id="layer10" value="11"><label>Financial, insurance  <br></label>
+    <input type="radio" name="layers" id="layer11" value="12"><label>Property  <br></label>
+    <input type="radio" name="layers" id="layer12" value="13"><label>Professional, scientific, technical  <br></label>
+    <input type="radio" name="layers" id="layer13" value="14"><label>Business administration  <br></label>
+    <input type="radio" name="layers" id="layer14" value="15"><label>Public administration, defence  <br></label>
+    <input type="radio" name="layers" id="layer15" value="16"><label>Education  <br></label>
+    <input type="radio" name="layers" id="layer16" value="17"><label>Health  <br></label>
+    <input type="radio" name="layers" id="layer17" value="18"><label>Arts, entertainment, recreation  <br></label>
+    </td>
+    </tr>
+    </table>
+    <p class="credit">Data: Nomis, official census and labour market statistics. Cartography: <a href="https://www.nomisweb.co.uk/">citygeographics</a>.</p>
+    </div>
+<div class='map-overlay' id='trytofly'>
+    <h3>Try to Fly ✈</h3>
+        <p class="credit">Zoom To: <a href="#" class="citylink" id="birm">Birmingham</a> &nbsp;<a href="#" class="citylink" id="shef">  Sheffield</a> &nbsp;<a href="#" class="citylink" id="live">Liverpool</a> &nbsp;<a href="#" class="citylink" id="lond">  London</a> &nbsp;<a href="#" class="citylink" id="manc">Manchester</a></p>
+    </div>
+    
+<div class='map-overlay' id="chartContainer">
+    <h3>Change over time (2015-2022)</h3>
+</div>
+    
+    <script>    
+	mapboxgl.accessToken = 'pk.eyJ1IjoibWl5YXpoYW8yNSIsImEiOiJjbHI3cjc1YXAyZ20yMmxwbm04OWltYnhzIn0.EdP5hXTxL3xl60hc6eWVIA';  //Put your mapbox access token here
+    
+    // Load a new map in the 'map' HTML div
+    var map = new mapboxgl.Map({
+    container: 'map', // container id
+    style: 'mapbox://styles/miyazhao25/clt7xrchl00at01qp8ryj6sbs', // Put your mapbox style ID here
+    center: [-0.127, 51.507], // starting position [lng, lat]
+    zoom: 10, // starting zoom
+    pitch: 40
+        });
+    
+    // wait for map to load before adjusting it
+    map.on('load', () => {
+    // make a pointer cursor
+    map.getCanvas().style.cursor = 'default'; 
+        
+    map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+        
+    // Load the employee layer as a fill
+    map.addLayer({
+        id: '1',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+        paint: {
+        'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A1'],
+            0, 0, 
+            5, 1, 
+            20, 5,
+            150, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+   
+    // Load the full_time layer as a fill
+    map.addLayer({
+        id: '2',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+    paint: {
+  'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A2'],
+            0, 0,
+            5, 1,
+            10, 5,
+            3000, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+    // Load the part_time layer as a fill
+    map.addLayer({
+        id: '3',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+    paint: {
+  'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A3'],
+            0, 0, 
+            15, 1,
+            35, 2,
+            100, 5,
+            8000, 20  
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+    // Load the  layer as a fill
+      map.addLayer({
+        id: '4',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A4'],
+            0, 0, 
+            75, 1, 
+            100, 2,
+            187.5, 5,
+            8000, 20
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '5',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A5'],
+            0, 0, 
+            5, 1, 
+            15, 2,
+            35, 5,
+            1000, 20  
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+    
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '6',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A6'],
+            0, 0,
+            15, 1, 
+            45, 2,
+            125, 5,
+            6000, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '7',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A7'],
+            10, 0, 
+            100, 1,
+            200, 2,
+            400, 5,
+            19000, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '8',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A8'],
+            0, 0,
+            20, 1, 
+            45, 2,
+            150, 5,
+            28000, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '9',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A9'],
+            10, 0, 
+            75, 1, 
+            175, 2,
+            350, 5,
+            33000, 20  
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '10',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A10'],
+            0, 0, 
+            30, 1, 
+            75, 2,
+            150, 5,
+            84000, 20  
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '11',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A11'],
+            0, 0, 
+            10, 2,
+            30, 5,
+            195000, 20  
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '12',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A12'],
+            0, 0, 
+            15, 1, 
+            45, 2,
+            100, 5,
+            12000, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '13',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A13'],
+            0, 0, 
+            75, 1, 
+            150, 2,
+            300, 5,
+            170000, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '14',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A14'],
+            0, 0, 
+            75, 1, 
+            125, 2,
+            350, 5,
+            69000, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '15',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A15'],
+            0, 0, 
+            50, 5,
+            57000, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '16',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A16'],
+            0, 0, 
+            150, 1, 
+            250, 2,
+            400, 5,
+            17000, 20  
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '17',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A17'],
+            0, 0, 
+            150, 1, 
+            250, 2,
+            400, 5,
+            18000, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+        
+        // Load the  layer as a fill
+      map.addLayer({
+        id: '18',
+        type: 'circle',
+        source: {
+          type: 'vector',
+          url: 'mapbox://miyazhao25.5o1nxmcu' // Your Mapbox tileset Map ID
+        },
+        'source-layer': 'points-a28o5v', // name of tileset
+   paint: {
+      'circle-color': '#ebfd44',
+        'circle-radius': [
+            'interpolate',
+            ['linear'], ['get', 'A18'],
+            0, 0, 
+            50, 1, 
+            100, 2,
+            225, 5,
+            16000, 20 
+        ],
+       'circle-blur': 0.35,
+       'circle-opacity': 0.6
+        }
+        },'settlement-major-label');
+    
+
+    // Initially set the opacity of all layers to 0
+    map.setPaintProperty('2', 'circle-opacity', 0);
+    map.setPaintProperty('3', 'circle-opacity', 0);
+    map.setPaintProperty('4', 'circle-opacity', 0);
+    map.setPaintProperty('5', 'circle-opacity', 0);
+    map.setPaintProperty('6', 'circle-opacity', 0);
+    map.setPaintProperty('7', 'circle-opacity', 0);
+    map.setPaintProperty('8', 'circle-opacity', 0);
+    map.setPaintProperty('9', 'circle-opacity', 0);
+    map.setPaintProperty('10', 'circle-opacity', 0);
+    map.setPaintProperty('11', 'circle-opacity', 0);
+    map.setPaintProperty('12', 'circle-opacity', 0);
+    map.setPaintProperty('13', 'circle-opacity', 0);
+    map.setPaintProperty('14', 'circle-opacity', 0);
+    map.setPaintProperty('15', 'circle-opacity', 0);
+    map.setPaintProperty('16', 'circle-opacity', 0);
+    map.setPaintProperty('17', 'circle-opacity', 0);
+    map.setPaintProperty('18', 'circle-opacity', 0);
+        
+     });
+        
+    var activeLayer = '1';
+    var activeCity = 'lond';
+        
+        
+    // Function to draw the chart
+    function drawChart(chartdata, selectedCityName, 
+    selectedIndustryName) {
+    // Clear any existing SVG to avoid duplicates
+    d3.select("#chartContainer").selectAll("*:not(h3)").remove();
+
+    // Create the SVG container and configure the chart
+    var svg = dimple.newSvg("#chartContainer", 280, 220);
+    var myChart = new dimple.chart(svg, chartdata);
+    myChart.setBounds(55, 20, 210, 160);
+    myChart.defaultColors = [new dimple.color("#54aae3")];
+
+    var x = myChart.addTimeAxis("x", "Year", "%Y", "%Y");
+    var y = myChart.addMeasureAxis("y", "Employment");
+
+    y.ticks = 5;
+    x.timeInterval = 2;
+
+    var s = myChart.addSeries(null, dimple.plot.line);
+    s.lineMarkers = true;
+    s.interpolation = "cardinal";
+
+    myChart.draw(500);
+        
+   // Append new labels for the selected city and industry at the top of the chart
+    svg.append("text")
+        .attr("class", "chart-label") // Add a class for styling if needed
+        .attr("x", myChart._xPixels() + myChart._widthPixels() / 2) // Center the text
+        .attr("y", myChart._yPixels() - 10) // Position above the chart
+        .style("text-anchor", "middle") // Ensure the text is centered
+        .style("font-size", "10px") // Set font size to 10px
+        .style("font-style", "italic") // Set font style to italic
+        .text(selectedCityName + ", " + selectedIndustryName);
+
+    svg.selectAll("path.domain").style("stroke", "#CCC");
+    svg.selectAll("g.tick line").style("stroke", "#CCC");
+    }
+        
+        
+    var csvData;
+    d3.csv("selected_data.csv", function(CityData) {
+    csvData = CityData;
+    updateChart(); // Example: Initialize with London, Industry A1
+    });
+    
+    function updateChart() {
+    // Map citylink IDs to CSV area names
+    var cityMap = {
+        'birm': 'Birmingham',
+        'shef': 'Sheffield',
+        'lond': 'London',
+        'manc': 'Manchester',
+        'live': 'Liverpool'
+    };
+        
+    var layerToIndustryMap = {
+    '1': 'Agriculture, forestry, fishing',
+    '2': 'Mining, quarrying, utilities',
+    '3': 'Manufacturing',
+    '4': 'Construction',
+    '5': 'Motor trades',
+    '6': 'Wholesale',
+    '7': 'Retail',
+    '8': 'Transport and storage',
+    '9': 'Accommodation, food services',
+    '10': 'Information, communication',
+    '11': 'Financial, insurance',
+    '12': 'Property',
+    '13': 'Professional, scientific, technical',
+    '14': 'Business administration',
+    '15': 'Public administration, defence',
+    '16': 'Education',
+    '17': 'Health',
+    '18': 'Arts, entertainment, recreation'
+    };
+        
+    var selectedCityName = cityMap[activeCity];
+    var selectedIndustry = activeLayer; 
+    var selectedIndustryName = layerToIndustryMap[activeLayer]; 
+        
+    // Filter data for the selected city
+    var selectedCityData = csvData.find(function(d) {
+        return d.Area === selectedCityName;
+    });
+
+    // Check if data exists for the city
+    if (!selectedCityData) {
+        console.error('No data found for the city:', selectedCityName);
+        return;
+    }
+    
+    // Dimple requires each data point on a time series to be a separate row. Below we insert the population data from the CityData array into a new array of JSON objects in the required format
+        var chartdata = [
+          { "Year":"2015","Employment":selectedCityData['H' + selectedIndustry] },
+          { "Year":"2016","Employment":selectedCityData['G' + selectedIndustry] },
+          { "Year":"2017","Employment":selectedCityData['F' + selectedIndustry] },
+          { "Year":"2018","Employment":selectedCityData['E' + selectedIndustry] },
+          { "Year":"2019","Employment":selectedCityData['D' + selectedIndustry] },
+          { "Year":"2020","Employment":selectedCityData['C' + selectedIndustry] },
+          { "Year":"2021","Employment":selectedCityData['B' + selectedIndustry] },
+          { "Year":"2022","Employment":selectedCityData['A' + selectedIndustry] }
+        ];
+        
+        drawChart(chartdata, selectedCityName, selectedIndustryName)
+    
+    }
+        
+
+    // Mousemove: Get the details from Map
+    map.on('mousemove', (event) => {
+    const states = map.queryRenderedFeatures(event.point, {
+        layers: [activeLayer]
+    });
+        
+    let propertyWord = 'A';
+    let propertyPrefix = activeLayer; // 假设activeLayer的第一个字母决定属性名的前缀
+    let dynamicProperty = `${propertyWord}${propertyPrefix}`;
+        
+    console.log('Active Layer:', activeLayer);
+    console.log('Dynamic Property:', dynamicProperty);
+    console.log('States:', states);
+        
+    document.getElementById('pd').innerHTML = states.length
+        ? `<h3>${states[0].properties.msoa11nm}</h3><p><strong><em>${states[0].properties[dynamicProperty]}</strong></em></p>`: `<p>Hover over a state!</p>`;
+    });
+    
+        
+    // Event listeners for layers    
+    const layerIds = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18'];
+
+    layerIds.forEach(function(layerId) {
+    document.getElementById(`layer${parseInt(layerId)-1}`).addEventListener("click", function(){
+    layerIds.forEach(function(id) {
+    map.setPaintProperty(id, 'circle-opacity', id === layerId ? 1 : 0);
+    });
+    activeLayer = layerId;
+    });
+    });
+    document.querySelectorAll('[name="layers"]').forEach(function(layerInput) {
+    layerInput.addEventListener('change', function() {
+        activeLayer = layerInput.value; // Update active layer
+        updateChart(); // Update the chart with the new layer
+    });
+    });
+        
+    //Event listener for the zoom to buttons created using a for loop and switch case statement to set lat and long
+    var x = document.getElementsByClassName('citylink');
+    var i;
+		for (i = 0; i < x.length; i++) {
+			x[i].addEventListener('click', function(e) {
+
+				var lat,long;
+
+				switch(e.target.id) {
+					case "birm": long=-1.907; lat=52.480; break;
+					case "shef": long=-1.470; lat=53.381; break;
+					case "lond": long=-0.127; lat=51.507; break;
+					case "manc": long=-2.244; lat=53.483; break;
+					case "live": long=-2.991; lat=53.408; break;
+				}
+
+				map.flyTo({
+					center: [long,lat],
+					zoom: 10,
+					speed: 0.3,
+					pitch: 50
+					});
+			});
+		};
+        
+    document.querySelectorAll('.citylink').forEach(function(cityLink) {
+    cityLink.addEventListener('click', function(event) {
+        activeCity = event.target.id; // Update active city
+        updateChart(); // Update the chart with the new city
+      });
+    });
+        
+    
+
+</script>
+
+</body>
+</html>
